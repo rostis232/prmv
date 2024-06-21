@@ -34,13 +34,15 @@
    ```
 4. Start Docker Compose:
    ```sh
-   docker-compose up
+   docker-compose up -d
    ```
    
    or use Makefile:
    ```sh
    make up
    ```
+   
+   This will run docker containers with application and PostrgeSQL.
 
 ## Usage
 
@@ -48,7 +50,8 @@ The web portal will be available once Docker Compose is up and running.
 
 ## Migrations
 
-App uses [golang-migrate](https://github.com/golang-migrate/migrate) for mirgations handling. 
+App uses [golang-migrate](https://github.com/golang-migrate/migrate) for mirgations handling.
+Migrations are applied independently when building containers.
 
 ## Contact
 
