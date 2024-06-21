@@ -1,11 +1,14 @@
 package service
 
 import (
+	"errors"
+	"github.com/go-playground/validator/v10"
 	"github.com/rostis232/prmv/models"
 )
 
 type Service struct {
-	Repo Repository
+	Repo     Repository
+	validate *validator.Validate
 }
 
 type Repository interface {
@@ -18,11 +21,16 @@ type Repository interface {
 
 func NewService(repo Repository) *Service {
 	return &Service{
-		Repo: repo,
+		Repo:     repo,
+		validate: validator.New(),
 	}
 }
 
 func (s *Service) AddPost(newPost models.Post) (models.Post, error) {
+	err := s.validate.Struct(newPost)
+	if err != nil {
+		return models.Post{}, err
+	}
 	id, err := s.Repo.AddPost(newPost)
 	if err != nil {
 		return models.Post{}, err
@@ -46,6 +54,12 @@ func (s *Service) GetAllPosts() ([]models.Post, error) {
 }
 
 func (s *Service) UpdatePost(updatedPost models.Post) (models.Post, error) {
+	if updatedPost.ID == 0 {
+		return models.Post{}, errors.New("invalid post ID")
+	}
+	if updatedPost.Title == "" && updatedPost.Content == "" {
+		return models.Post{}, errors.New("invalid post content")
+	}
 	post, err := s.Repo.GetPost(updatedPost.ID)
 	if err != nil {
 		return models.Post{}, err
