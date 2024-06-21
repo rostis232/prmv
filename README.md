@@ -1,6 +1,4 @@
-# GoLibrary
-
-GoLibrary is a web portal containing information about educational materials for Golang. The project uses the Echo framework and the Templ package for HTML page generation.
+# PRMV
 
 ## Uses
 
