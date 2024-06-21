@@ -46,6 +46,10 @@
 
 The web portal will be available once Docker Compose is up and running.
 
+## Migrations
+
+App uses [golang-migrate](https://github.com/golang-migrate/migrate) for mirgations handling. 
+
 ## Contact
 
 - Telegram: [rostis232](https://t.me/rostis232)

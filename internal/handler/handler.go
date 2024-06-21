@@ -29,11 +29,11 @@ func (h Handler) AddPost(c echo.Context) error {
 	var post models.Post
 	err := c.Bind(&post)
 	if err != nil {
-		return c.String(http.StatusBadRequest, err.Error())
+		return newErrorResponse(c, http.StatusBadRequest, "invalid post data")
 	}
 	newPost, err := h.Service.AddPost(post)
 	if err != nil {
-		return c.String(http.StatusBadRequest, err.Error())
+		return newErrorResponse(c, http.StatusInternalServerError, err.Error())
 	}
 	return c.JSON(http.StatusOK, newPost)
 }
@@ -41,7 +41,7 @@ func (h Handler) AddPost(c echo.Context) error {
 func (h Handler) GetAllPosts(c echo.Context) error {
 	posts, err := h.Service.GetAllPosts()
 	if err != nil {
-		return c.String(http.StatusBadRequest, err.Error())
+		return newErrorResponse(c, http.StatusInternalServerError, err.Error())
 	}
 	return c.JSON(http.StatusOK, posts)
 }
@@ -50,17 +50,17 @@ func (h Handler) UpdatePost(c echo.Context) error {
 	idStr := c.Param("id")
 	idInt, err := strconv.Atoi(idStr)
 	if err != nil {
-		return c.String(http.StatusBadRequest, err.Error())
+		return newErrorResponse(c, http.StatusBadRequest, "invalid post id")
 	}
 	var post models.Post
 	err = c.Bind(&post)
 	if err != nil {
-		return c.String(http.StatusBadRequest, err.Error())
+		return newErrorResponse(c, http.StatusBadRequest, "invalid post data")
 	}
 	post.ID = idInt
 	updatedPost, err := h.Service.UpdatePost(post)
 	if err != nil {
-		return c.String(http.StatusBadRequest, err.Error())
+		return newErrorResponse(c, http.StatusInternalServerError, err.Error())
 	}
 	return c.JSON(http.StatusOK, updatedPost)
 }
@@ -69,11 +69,11 @@ func (h Handler) GetPost(c echo.Context) error {
 	idStr := c.Param("id")
 	idInt, err := strconv.Atoi(idStr)
 	if err != nil {
-		return c.String(http.StatusBadRequest, err.Error())
+		return newErrorResponse(c, http.StatusBadRequest, "invalid post id")
 	}
 	post, err := h.Service.GetPost(idInt)
 	if err != nil {
-		return c.String(http.StatusBadRequest, err.Error())
+		return newErrorResponse(c, http.StatusInternalServerError, err.Error())
 	}
 	return c.JSON(http.StatusOK, post)
 }
@@ -82,11 +82,11 @@ func (h Handler) DeletePost(c echo.Context) error {
 	idStr := c.Param("id")
 	idInt, err := strconv.Atoi(idStr)
 	if err != nil {
-		return c.String(http.StatusBadRequest, err.Error())
+		return newErrorResponse(c, http.StatusBadRequest, "invalid post id")
 	}
 	err = h.Service.DeletePost(idInt)
 	if err != nil {
-		return c.String(http.StatusBadRequest, err.Error())
+		return newErrorResponse(c, http.StatusInternalServerError, err.Error())
 	}
 	return c.NoContent(http.StatusNoContent)
 }
