@@ -8,13 +8,23 @@ import (
 	"github.com/rostis232/prmv/internal/pkg/app"
 )
 
+// @title Swagger PRMV API
+// @version 1.0
+// @description This is a server for test task.
+
+// @host localhost:8080
+// @BasePath /
+
 func main() {
 	a, err := app.NewApp(pgConfig())
 	if err != nil {
 		log.Panic(err)
 	}
+
 	port := os.Getenv("PORT")
+
 	log.Infof("PORT: %s", port)
+
 	if err := a.Run(port); err != nil {
 		log.Panic(err)
 	}

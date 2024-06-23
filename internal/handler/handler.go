@@ -1,14 +1,17 @@
 package handler
 
 import (
+	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/gommon/log"
 	"github.com/rostis232/prmv/models"
 	"net/http"
 	"strconv"
 )
 
 type Handler struct {
-	Service Service
+	Service  Service
+	validate *validator.Validate
 }
 
 type Service interface {
@@ -21,72 +24,195 @@ type Service interface {
 
 func NewHandler(service Service) *Handler {
 	return &Handler{
-		Service: service,
+		Service:  service,
+		validate: validator.New(),
 	}
 }
 
-func (h Handler) AddPost(c echo.Context) error {
-	var post models.Post
+type postData struct {
+	Title   string `db:"title" json:"title" validate:"required,min=3,max=100"`
+	Content string `db:"content" json:"content" validate:"required,min=3"`
+}
+
+// AddPost godoc
+// @Summary Add a new post
+// @Description Add a new post with the input payload
+// @Tags posts
+// @Accept  json
+// @Produce  json
+// @Param post body postData true "Post Data"
+// @Success 200 {object} models.Post
+// @Failure 400 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Router /posts [post]
+func (h *Handler) AddPost(c echo.Context) error {
+	var post postData
+
 	err := c.Bind(&post)
 	if err != nil {
 		return newErrorResponse(c, http.StatusBadRequest, "invalid post data")
 	}
-	newPost, err := h.Service.AddPost(post)
+
+	err = h.validate.Struct(post)
 	if err != nil {
-		return newErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return newErrorResponse(c, http.StatusBadRequest, err.Error())
 	}
+
+	newPost, err := h.Service.AddPost(models.Post{
+		Title:   post.Title,
+		Content: post.Content,
+	})
+	if err != nil {
+		log.Errorf("error adding post: %v", err)
+		return newErrorResponse(c, http.StatusInternalServerError, "error adding post")
+	}
+
 	return c.JSON(http.StatusOK, newPost)
 }
 
-func (h Handler) GetAllPosts(c echo.Context) error {
+// GetAllPosts godoc
+// @Summary Get all posts
+// @Description Get a list of all posts
+// @Tags posts
+// @Accept  json
+// @Produce  json
+// @Success 200 {array} models.Post
+// @Failure 500 {object} errorResponse
+// @Router /posts [get]
+func (h *Handler) GetAllPosts(c echo.Context) error {
 	posts, err := h.Service.GetAllPosts()
 	if err != nil {
-		return newErrorResponse(c, http.StatusInternalServerError, err.Error())
+		log.Errorf("error getting all posts: %v", err)
+		return newErrorResponse(c, http.StatusInternalServerError, "error getting all posts")
 	}
+
 	return c.JSON(http.StatusOK, posts)
 }
 
-func (h Handler) UpdatePost(c echo.Context) error {
+// UpdatePost godoc
+// @Summary Update a post
+// @Description Update a post with the given id
+// @Tags posts
+// @Accept  json
+// @Produce  json
+// @Param id path int true "Post ID"
+// @Param post body postData true "Post Data"
+// @Success 200 {object} models.Post
+// @Failure 400 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Router /posts/{id} [put]
+func (h *Handler) UpdatePost(c echo.Context) error {
 	idStr := c.Param("id")
+
 	idInt, err := strconv.Atoi(idStr)
 	if err != nil {
+		log.Errorf("error converting id to int: %v", err)
 		return newErrorResponse(c, http.StatusBadRequest, "invalid post id")
 	}
-	var post models.Post
+
+	if idInt < 1 {
+		return newErrorResponse(c, http.StatusBadRequest, "invalid post id")
+	}
+
+	var post postData
+
 	err = c.Bind(&post)
 	if err != nil {
+		log.Errorf("error unmarshalling post: %v", err)
 		return newErrorResponse(c, http.StatusBadRequest, "invalid post data")
 	}
-	post.ID = idInt
-	updatedPost, err := h.Service.UpdatePost(post)
-	if err != nil {
-		return newErrorResponse(c, http.StatusInternalServerError, err.Error())
+
+	if post.Title == "" && post.Content == "" {
+		return newErrorResponse(c, http.StatusBadRequest, "invalid post data")
 	}
+
+	updatedPost, err := h.Service.UpdatePost(models.Post{
+		ID:      idInt,
+		Title:   post.Title,
+		Content: post.Content,
+	})
+	if err != nil {
+		log.Errorf("error updating post: %v", err)
+		return newErrorResponse(c, http.StatusInternalServerError, "error updating post")
+	}
+
 	return c.JSON(http.StatusOK, updatedPost)
 }
 
-func (h Handler) GetPost(c echo.Context) error {
+// GetPost godoc
+// @Summary Get a post by ID
+// @Description Get a single post by its ID
+// @Tags posts
+// @Accept  json
+// @Produce  json
+// @Param id path int true "Post ID"
+// @Success 200 {object} models.Post
+// @Failure 400 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Router /posts/{id} [get]
+func (h *Handler) GetPost(c echo.Context) error {
 	idStr := c.Param("id")
+
 	idInt, err := strconv.Atoi(idStr)
 	if err != nil {
+		log.Errorf("error converting id to int: %v", err)
 		return newErrorResponse(c, http.StatusBadRequest, "invalid post id")
 	}
+
+	if idInt < 1 {
+		return newErrorResponse(c, http.StatusBadRequest, "invalid post id")
+	}
+
 	post, err := h.Service.GetPost(idInt)
 	if err != nil {
-		return newErrorResponse(c, http.StatusInternalServerError, err.Error())
+		log.Errorf("error getting post: %v", err)
+		return newErrorResponse(c, http.StatusInternalServerError, "error getting post")
 	}
+
 	return c.JSON(http.StatusOK, post)
 }
 
-func (h Handler) DeletePost(c echo.Context) error {
+// DeletePost godoc
+// @Summary Delete a post by ID
+// @Description Delete a single post by its ID
+// @Tags posts
+// @Accept  json
+// @Produce  json
+// @Param id path int true "Post ID"
+// @Success 204
+// @Failure 400 {object} errorResponse
+// @Failure 500 {object} errorResponse
+// @Router /posts/{id} [delete]
+func (h *Handler) DeletePost(c echo.Context) error {
 	idStr := c.Param("id")
+
 	idInt, err := strconv.Atoi(idStr)
 	if err != nil {
+		log.Errorf("error converting id to int: %v", err)
 		return newErrorResponse(c, http.StatusBadRequest, "invalid post id")
 	}
+
+	if idInt < 1 {
+		return newErrorResponse(c, http.StatusBadRequest, "invalid post id")
+	}
+
 	err = h.Service.DeletePost(idInt)
 	if err != nil {
-		return newErrorResponse(c, http.StatusInternalServerError, err.Error())
+		log.Errorf("error deleting post: %v", err)
+		return newErrorResponse(c, http.StatusInternalServerError, "error deleting post")
 	}
+
 	return c.NoContent(http.StatusNoContent)
+}
+
+func (h *Handler) Home(c echo.Context) error {
+	html := `<!DOCTYPE html>
+			<html lang="en">
+			<h1>Promova test task realization</h1>
+			<ul>
+			<li>Repository: <a href="https://github.com/rostis232/prmv">https://github.com/rostis232/prmv</a></li>
+			<li>Swagger OpenAPI documentation: <a href="/swagger/index.html">/swagger/index.html</a></li>
+			<li>API: <a href="/posts">/posts</a><li>
+			</ul>`
+	return c.HTML(http.StatusOK, html)
 }

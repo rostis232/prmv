@@ -2,13 +2,11 @@ package service
 
 import (
 	"errors"
-	"github.com/go-playground/validator/v10"
 	"github.com/rostis232/prmv/models"
 )
 
 type Service struct {
-	Repo     Repository
-	validate *validator.Validate
+	Repo Repository
 }
 
 type Repository interface {
@@ -21,16 +19,11 @@ type Repository interface {
 
 func NewService(repo Repository) *Service {
 	return &Service{
-		Repo:     repo,
-		validate: validator.New(),
+		Repo: repo,
 	}
 }
 
 func (s *Service) AddPost(newPost models.Post) (models.Post, error) {
-	err := s.validate.Struct(newPost)
-	if err != nil {
-		return models.Post{}, err
-	}
 	id, err := s.Repo.AddPost(newPost)
 	if err != nil {
 		return models.Post{}, err
@@ -38,7 +31,7 @@ func (s *Service) AddPost(newPost models.Post) (models.Post, error) {
 
 	post, err := s.Repo.GetPost(id)
 	if err != nil {
-		return post, err
+		return models.Post{}, err
 	}
 
 	return post, nil
@@ -57,19 +50,24 @@ func (s *Service) UpdatePost(updatedPost models.Post) (models.Post, error) {
 	if updatedPost.ID == 0 {
 		return models.Post{}, errors.New("invalid post ID")
 	}
+
 	if updatedPost.Title == "" && updatedPost.Content == "" {
 		return models.Post{}, errors.New("invalid post content")
 	}
+
 	post, err := s.Repo.GetPost(updatedPost.ID)
 	if err != nil {
 		return models.Post{}, err
 	}
+
 	if updatedPost.Title != "" && post.Title != updatedPost.Title {
 		post.Title = updatedPost.Title
 	}
+
 	if updatedPost.Content != "" && post.Content != updatedPost.Content {
 		post.Content = updatedPost.Content
 	}
+
 	id, err := s.Repo.UpdatePost(post)
 	if err != nil {
 		return models.Post{}, err
@@ -79,6 +77,7 @@ func (s *Service) UpdatePost(updatedPost models.Post) (models.Post, error) {
 	if err != nil {
 		return models.Post{}, err
 	}
+
 	return post, nil
 }
 
@@ -87,6 +86,7 @@ func (s *Service) GetPost(id int) (models.Post, error) {
 	if err != nil {
 		return models.Post{}, err
 	}
+
 	return post, nil
 }
 
@@ -95,5 +95,6 @@ func (s *Service) DeletePost(id int) error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
