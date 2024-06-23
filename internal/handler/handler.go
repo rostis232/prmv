@@ -42,8 +42,8 @@ type postData struct {
 // @Produce  json
 // @Param post body postData true "Post Data"
 // @Success 200 {object} models.Post
-// @Failure 400 {object} errorResponse
-// @Failure 500 {object} errorResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Router /posts [post]
 func (h *Handler) AddPost(c echo.Context) error {
 	var post postData
@@ -55,7 +55,7 @@ func (h *Handler) AddPost(c echo.Context) error {
 
 	err = h.validate.Struct(post)
 	if err != nil {
-		return newErrorResponse(c, http.StatusBadRequest, err.Error())
+		return newErrorResponse(c, http.StatusBadRequest, "invalid post data")
 	}
 
 	newPost, err := h.Service.AddPost(models.Post{
@@ -67,7 +67,7 @@ func (h *Handler) AddPost(c echo.Context) error {
 		return newErrorResponse(c, http.StatusInternalServerError, "error adding post")
 	}
 
-	return c.JSON(http.StatusOK, newPost)
+	return c.JSON(http.StatusCreated, newPost)
 }
 
 // GetAllPosts godoc
@@ -77,7 +77,7 @@ func (h *Handler) AddPost(c echo.Context) error {
 // @Accept  json
 // @Produce  json
 // @Success 200 {array} models.Post
-// @Failure 500 {object} errorResponse
+// @Failure 500 {object} ErrorResponse
 // @Router /posts [get]
 func (h *Handler) GetAllPosts(c echo.Context) error {
 	posts, err := h.Service.GetAllPosts()
@@ -98,8 +98,8 @@ func (h *Handler) GetAllPosts(c echo.Context) error {
 // @Param id path int true "Post ID"
 // @Param post body postData true "Post Data"
 // @Success 200 {object} models.Post
-// @Failure 400 {object} errorResponse
-// @Failure 500 {object} errorResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Router /posts/{id} [put]
 func (h *Handler) UpdatePost(c echo.Context) error {
 	idStr := c.Param("id")
@@ -147,8 +147,8 @@ func (h *Handler) UpdatePost(c echo.Context) error {
 // @Produce  json
 // @Param id path int true "Post ID"
 // @Success 200 {object} models.Post
-// @Failure 400 {object} errorResponse
-// @Failure 500 {object} errorResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Router /posts/{id} [get]
 func (h *Handler) GetPost(c echo.Context) error {
 	idStr := c.Param("id")
@@ -180,8 +180,8 @@ func (h *Handler) GetPost(c echo.Context) error {
 // @Produce  json
 // @Param id path int true "Post ID"
 // @Success 204
-// @Failure 400 {object} errorResponse
-// @Failure 500 {object} errorResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Router /posts/{id} [delete]
 func (h *Handler) DeletePost(c echo.Context) error {
 	idStr := c.Param("id")

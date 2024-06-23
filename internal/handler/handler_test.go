@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -44,151 +45,367 @@ func (m *MockService) DeletePost(id int) error {
 }
 
 func TestAddPost(t *testing.T) {
-	mockService := new(MockService)
-	h := NewHandler(mockService)
-	e := echo.New()
-	reqBody := `{"title":"Test Post","content":"Test Content"}`
-
-	mockService.On("AddPost", mock.Anything).Return(models.Post{ID: 1, Title: "Test Post", Content: "Test Content"}, nil)
-
-	req := httptest.NewRequest(http.MethodPost, "/posts", bytes.NewBufferString(reqBody))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-
-	err := h.AddPost(c)
-
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusOK, rec.Code)
-
-	resp := models.Post{}
-
-	err = json.Unmarshal([]byte(rec.Body.String()), &resp)
-	if err != nil {
-		assert.NoError(t, err)
+	testCases := []struct {
+		reqBody      string
+		post         models.Post
+		status       int
+		errorExpects bool
+	}{
+		{
+			reqBody:      `{"title":"Test Post","content":"Test Content"}`,
+			post:         models.Post{ID: 1, Title: "Test Post", Content: "Test Content"},
+			status:       http.StatusCreated,
+			errorExpects: false,
+		},
+		{
+			reqBody:      `{"title":"Test Post","content":""}`,
+			post:         models.Post{},
+			status:       http.StatusBadRequest,
+			errorExpects: true,
+		},
+		{
+			reqBody:      `{"title":"","content":"Content"}`,
+			post:         models.Post{},
+			status:       http.StatusBadRequest,
+			errorExpects: true,
+		},
+		{
+			reqBody:      `{"title":"","content":"Content"}`,
+			post:         models.Post{},
+			status:       http.StatusBadRequest,
+			errorExpects: true,
+		},
+		{
+			reqBody:      `{"field":"value"}`,
+			post:         models.Post{},
+			status:       http.StatusBadRequest,
+			errorExpects: true,
+		},
+		{
+			reqBody:      `{"title":123,"content":456}`,
+			post:         models.Post{},
+			status:       http.StatusBadRequest,
+			errorExpects: true,
+		},
 	}
-	assert.Equal(t, "Test Post", resp.Title)
-	assert.Equal(t, "Test Content", resp.Content)
 
-	mockService.AssertExpectations(t)
+	for i, tc := range testCases {
+		mockService := new(MockService)
+		h := NewHandler(mockService)
+		e := echo.New()
+
+		if !tc.errorExpects {
+			mockService.On("AddPost", mock.Anything).Return(tc.post, nil)
+		}
+
+		req := httptest.NewRequest(http.MethodPost, "/posts", bytes.NewBufferString(tc.reqBody))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		err := h.AddPost(c)
+
+		assert.NoError(t, err, fmt.Sprintf("case %d", i))
+		assert.Equal(t, tc.status, rec.Code, fmt.Sprintf("case %d", i))
+
+		if tc.errorExpects {
+			resp := ErrorResponse{}
+
+			err = json.Unmarshal([]byte(rec.Body.String()), &resp)
+			if err != nil {
+				assert.NoError(t, err, fmt.Sprintf("case %d", i))
+			}
+
+			assert.Equal(t, "invalid post data", resp.Error, fmt.Sprintf("case %d", i))
+		} else {
+			resp := models.Post{}
+
+			err = json.Unmarshal([]byte(rec.Body.String()), &resp)
+			if err != nil {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, "Test Post", resp.Title, fmt.Sprintf("case %d", i))
+			assert.Equal(t, "Test Content", resp.Content, fmt.Sprintf("case %d", i))
+		}
+
+		mockService.AssertExpectations(t)
+	}
+
 }
 
 func TestGetAllPosts(t *testing.T) {
-	mockService := new(MockService)
-	h := NewHandler(mockService)
-	e := echo.New()
-
-	mockPosts := []models.Post{
-		{ID: 1, Title: "Post 1", Content: "Content 1"},
-		{ID: 2, Title: "Post 2", Content: "Content 2"},
-	}
-	mockService.On("GetAllPosts").Return(mockPosts, nil)
-
-	req := httptest.NewRequest(http.MethodGet, "/posts", nil)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-
-	err := h.GetAllPosts(c)
-
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusOK, rec.Code)
-
-	resp := []models.Post{}
-	err = json.Unmarshal([]byte(rec.Body.String()), &resp)
-	if err != nil {
-		assert.NoError(t, err)
+	testCases := [][]models.Post{
+		{
+			{ID: 1, Title: "Post 1", Content: "Content 1"},
+			{ID: 2, Title: "Post 2", Content: "Content 2"},
+		},
+		{
+			{ID: 1, Title: "Post 1", Content: "Content 1"},
+		},
+		{},
 	}
 
-	for i, post := range resp {
-		assert.Equal(t, mockPosts[i].Title, post.Title)
-		assert.Equal(t, mockPosts[i].Content, post.Content)
+	for i, tc := range testCases {
+		mockService := new(MockService)
+		h := NewHandler(mockService)
+		e := echo.New()
+
+		mockService.On("GetAllPosts").Return(tc, nil).Once()
+
+		req := httptest.NewRequest(http.MethodGet, "/posts", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		err := h.GetAllPosts(c)
+
+		assert.NoError(t, err, fmt.Sprintf("case %d", i))
+		assert.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("case %d", i))
+
+		resp := []models.Post{}
+		err = json.Unmarshal([]byte(rec.Body.String()), &resp)
+		if err != nil {
+			assert.NoError(t, err, fmt.Sprintf("case %d", i))
+		}
+
+		assert.Len(t, resp, len(tc), fmt.Sprintf("case %d", i))
+
+		for j, post := range resp {
+			assert.Equal(t, tc[j].Title, post.Title, fmt.Sprintf("case %d", i))
+			assert.Equal(t, tc[j].Content, post.Content, fmt.Sprintf("case %d", i))
+		}
+
+		mockService.AssertExpectations(t)
 	}
 
-	mockService.AssertExpectations(t)
 }
 
 func TestUpdatePost(t *testing.T) {
-	mockService := new(MockService)
-	h := NewHandler(mockService)
-	e := echo.New()
-	reqBody := `{"title":"Updated Post","content":"Updated Content"}`
+	testCases := []struct {
+		id           string
+		reqBody      string
+		post         models.Post
+		status       int
+		errorExpects bool
+		errorMessage string
+	}{
+		{
+			id:           "1",
+			reqBody:      `{"title":"Updated Post","content":"Updated Content"}`,
+			post:         models.Post{ID: 1, Title: "Updated Post", Content: "Updated Content"},
+			status:       http.StatusOK,
+			errorExpects: false,
+		},
+		{
+			reqBody:      `{"title":"Updated Post","content":"Updated Content"}`,
+			post:         models.Post{},
+			status:       http.StatusBadRequest,
+			errorExpects: true,
+			errorMessage: "invalid post id",
+		},
+		{
+			id:           "1",
+			reqBody:      `{"content":"Updated Content"}`,
+			post:         models.Post{ID: 1, Title: "Post", Content: "Updated Content"},
+			status:       http.StatusOK,
+			errorExpects: false,
+		},
+		{
+			id:           "1",
+			reqBody:      `{"title":"Updated Post"}`,
+			post:         models.Post{ID: 1, Title: "Updated Post", Content: "Content"},
+			status:       http.StatusOK,
+			errorExpects: false,
+		},
+		{
+			id:           "1",
+			reqBody:      `{"title111":"Updated Post111"}`,
+			post:         models.Post{},
+			status:       http.StatusBadRequest,
+			errorExpects: true,
+			errorMessage: "invalid post data",
+		},
 
-	mockService.On("UpdatePost", mock.Anything).Return(models.Post{ID: 1, Title: "Updated Post", Content: "Updated Content"}, nil)
-
-	req := httptest.NewRequest(http.MethodPut, "/posts/1", bytes.NewBufferString(reqBody))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	c.SetPath("/posts/:id")
-	c.SetParamNames("id")
-	c.SetParamValues("1")
-
-	err := h.UpdatePost(c)
-
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusOK, rec.Code)
-
-	resp := models.Post{}
-
-	err = json.Unmarshal([]byte(rec.Body.String()), &resp)
-	if err != nil {
-		assert.NoError(t, err)
+		{
+			id:           "1",
+			reqBody:      `{}`,
+			post:         models.Post{},
+			status:       http.StatusBadRequest,
+			errorExpects: true,
+			errorMessage: "invalid post data",
+		},
 	}
-	assert.Equal(t, "Updated Post", resp.Title)
-	assert.Equal(t, "Updated Content", resp.Content)
 
-	mockService.AssertExpectations(t)
+	for i, tc := range testCases {
+		mockService := new(MockService)
+		h := NewHandler(mockService)
+		e := echo.New()
+
+		if !tc.errorExpects {
+			mockService.On("UpdatePost", mock.Anything).Return(tc.post, nil).Once()
+		}
+
+		req := httptest.NewRequest(http.MethodPut, "/posts/"+tc.id, bytes.NewBufferString(tc.reqBody))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/posts/:id")
+		c.SetParamNames("id")
+		c.SetParamValues(tc.id)
+
+		err := h.UpdatePost(c)
+
+		assert.NoError(t, err, fmt.Sprintf("case %d", i))
+
+		assert.Equal(t, tc.status, rec.Code, fmt.Sprintf("case %d", i))
+
+		if tc.errorExpects {
+			resp := ErrorResponse{}
+
+			err = json.Unmarshal([]byte(rec.Body.String()), &resp)
+			if err != nil {
+				assert.NoError(t, err, fmt.Sprintf("case %d", i))
+			}
+
+			assert.Equal(t, tc.errorMessage, resp.Error, fmt.Sprintf("case %d", i))
+		} else {
+			resp := models.Post{}
+
+			err = json.Unmarshal([]byte(rec.Body.String()), &resp)
+			if err != nil {
+				assert.NoError(t, err, fmt.Sprintf("case %d", i))
+			}
+
+			assert.Equal(t, tc.post.Title, resp.Title, fmt.Sprintf("case %d", i))
+			assert.Equal(t, tc.post.Content, resp.Content, fmt.Sprintf("case %d", i))
+		}
+		mockService.AssertExpectations(t)
+	}
 }
 
 func TestGetPost(t *testing.T) {
-	mockService := new(MockService)
-	h := NewHandler(mockService)
-	e := echo.New()
-
-	mockService.On("GetPost", 1).Return(models.Post{ID: 1, Title: "Test Post", Content: "Test Content"}, nil)
-
-	req := httptest.NewRequest(http.MethodGet, "/posts/1", nil)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	c.SetPath("/posts/:id")
-	c.SetParamNames("id")
-	c.SetParamValues("1")
-
-	err := h.GetPost(c)
-
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusOK, rec.Code)
-
-	resp := models.Post{}
-
-	err = json.Unmarshal([]byte(rec.Body.String()), &resp)
-	if err != nil {
-		assert.NoError(t, err)
+	testCases := []struct {
+		id           string
+		post         models.Post
+		errorExpects bool
+		errorMessage string
+		status       int
+	}{
+		{
+			id:           "1",
+			post:         models.Post{ID: 1, Title: "Test Post", Content: "Test Content"},
+			errorExpects: false,
+			status:       http.StatusOK,
+		},
+		{
+			id:           "0",
+			post:         models.Post{},
+			errorExpects: true,
+			status:       http.StatusBadRequest,
+			errorMessage: "invalid post id",
+		},
+		{
+			id:           "a",
+			post:         models.Post{},
+			errorExpects: true,
+			status:       http.StatusBadRequest,
+			errorMessage: "invalid post id",
+		},
 	}
-	assert.Equal(t, "Test Post", resp.Title)
-	assert.Equal(t, "Test Content", resp.Content)
 
-	mockService.AssertExpectations(t)
+	for i, tc := range testCases {
+		mockService := new(MockService)
+		h := NewHandler(mockService)
+		e := echo.New()
+
+		if !tc.errorExpects {
+			mockService.On("GetPost", 1).Return(tc.post, nil)
+		}
+
+		req := httptest.NewRequest(http.MethodGet, "/posts/"+tc.id, nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/posts/:id")
+		c.SetParamNames("id")
+		c.SetParamValues(tc.id)
+
+		err := h.GetPost(c)
+
+		assert.NoError(t, err, fmt.Sprintf("case %d", i))
+		assert.Equal(t, tc.status, rec.Code, fmt.Sprintf("case %d", i))
+
+		if tc.errorExpects {
+			resp := ErrorResponse{}
+
+			err = json.Unmarshal([]byte(rec.Body.String()), &resp)
+			if err != nil {
+				assert.NoError(t, err, fmt.Sprintf("case %d", i))
+			}
+
+			assert.Equal(t, tc.errorMessage, resp.Error, fmt.Sprintf("case %d", i))
+		} else {
+			resp := models.Post{}
+
+			err = json.Unmarshal([]byte(rec.Body.String()), &resp)
+			if err != nil {
+				assert.NoError(t, err)
+			}
+
+			assert.Equal(t, tc.post.Title, resp.Title, fmt.Sprintf("case %d", i))
+			assert.Equal(t, tc.post.Content, resp.Content, fmt.Sprintf("case %d", i))
+		}
+		mockService.AssertExpectations(t)
+	}
 }
 
 func TestDeletePost(t *testing.T) {
-	mockService := new(MockService)
-	h := NewHandler(mockService)
-	e := echo.New()
+	testCases := []struct {
+		id           string
+		post         models.Post
+		errorExpects bool
+		errorMessage string
+		status       int
+	}{
+		{
+			id:           "1",
+			errorExpects: false,
+			status:       http.StatusNoContent,
+		},
+		{
+			id:           "0",
+			errorExpects: true,
+			status:       http.StatusBadRequest,
+			errorMessage: "invalid post id",
+		},
+		{
+			id:           "a",
+			errorExpects: true,
+			status:       http.StatusBadRequest,
+			errorMessage: "invalid post id",
+		},
+	}
 
-	mockService.On("DeletePost", 1).Return(nil)
+	for i, tc := range testCases {
+		mockService := new(MockService)
+		h := NewHandler(mockService)
+		e := echo.New()
 
-	req := httptest.NewRequest(http.MethodDelete, "/posts/1", nil)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	c.SetPath("/posts/:id")
-	c.SetParamNames("id")
-	c.SetParamValues("1")
+		if !tc.errorExpects {
+			mockService.On("DeletePost", 1).Return(nil)
+		}
 
-	err := h.DeletePost(c)
+		req := httptest.NewRequest(http.MethodDelete, "/posts/"+tc.id, nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/posts/:id")
+		c.SetParamNames("id")
+		c.SetParamValues(tc.id)
 
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusNoContent, rec.Code)
+		err := h.DeletePost(c)
 
-	mockService.AssertExpectations(t)
+		assert.NoError(t, err, fmt.Sprintf("case %d", i))
+		assert.Equal(t, tc.status, rec.Code, fmt.Sprintf("case %d", i))
+
+		mockService.AssertExpectations(t)
+	}
+
 }

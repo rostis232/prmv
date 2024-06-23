@@ -3,7 +3,6 @@ package service
 import (
 	"testing"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/rostis232/prmv/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -128,15 +127,4 @@ func TestDeletePost(t *testing.T) {
 	assert.NoError(t, err)
 
 	mockRepo.AssertExpectations(t)
-}
-
-func TestAddPostValidation(t *testing.T) {
-	mockRepo := new(MockRepository)
-	service := NewService(mockRepo)
-
-	invalidPost := models.Post{Title: "", Content: "Test Content"}
-
-	_, err := service.AddPost(invalidPost)
-	assert.Error(t, err)
-	assert.IsType(t, validator.ValidationErrors{}, err)
 }
