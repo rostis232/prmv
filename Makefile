@@ -14,3 +14,6 @@ down:
 	@echo "Stopping docker compose..."
 	docker-compose down
 	@echo "Done!"
+
+test:
+	go test ./...

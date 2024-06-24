@@ -6,6 +6,7 @@ require (
 	github.com/go-playground/validator/v10 v10.22.0
 	github.com/golang-migrate/migrate/v4 v4.17.1
 	github.com/labstack/echo/v4 v4.12.0
+	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.9.0
 	github.com/swaggo/echo-swagger v1.4.1
 	github.com/swaggo/swag v1.16.3

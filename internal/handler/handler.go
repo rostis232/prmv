@@ -206,13 +206,5 @@ func (h *Handler) DeletePost(c echo.Context) error {
 }
 
 func (h *Handler) Home(c echo.Context) error {
-	html := `<!DOCTYPE html>
-			<html lang="en">
-			<h1>Promova test task realization</h1>
-			<ul>
-			<li>Repository: <a href="https://github.com/rostis232/prmv">https://github.com/rostis232/prmv</a></li>
-			<li>Swagger OpenAPI documentation: <a href="/swagger/index.html">/swagger/index.html</a></li>
-			<li>API: <a href="/posts">/posts</a><li>
-			</ul>`
-	return c.HTML(http.StatusOK, html)
+	return c.Redirect(http.StatusTemporaryRedirect, "/swagger/index.html")
 }
