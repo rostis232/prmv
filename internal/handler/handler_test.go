@@ -224,10 +224,17 @@ func TestUpdatePost(t *testing.T) {
 			errorExpects: true,
 			errorMessage: "invalid post data",
 		},
-
 		{
 			id:           "1",
 			reqBody:      `{}`,
+			post:         models.Post{},
+			status:       http.StatusBadRequest,
+			errorExpects: true,
+			errorMessage: "invalid post data",
+		},
+		{
+			id:           "1",
+			reqBody:      `{"title":"","content":""}`,
 			post:         models.Post{},
 			status:       http.StatusBadRequest,
 			errorExpects: true,

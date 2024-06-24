@@ -1,7 +1,6 @@
 package service
 
 import (
-	"errors"
 	"github.com/rostis232/prmv/models"
 )
 
@@ -47,14 +46,6 @@ func (s *Service) GetAllPosts() ([]models.Post, error) {
 }
 
 func (s *Service) UpdatePost(updatedPost models.Post) (models.Post, error) {
-	if updatedPost.ID == 0 {
-		return models.Post{}, errors.New("invalid post ID")
-	}
-
-	if updatedPost.Title == "" && updatedPost.Content == "" {
-		return models.Post{}, errors.New("invalid post content")
-	}
-
 	post, err := s.Repo.GetPost(updatedPost.ID)
 	if err != nil {
 		return models.Post{}, err
