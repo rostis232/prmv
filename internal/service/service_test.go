@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/rostis232/prmv/models"
@@ -72,23 +73,47 @@ func TestGetAllPosts(t *testing.T) {
 }
 
 func TestUpdatePost(t *testing.T) {
-	mockRepo := new(MockRepository)
-	service := NewService(mockRepo)
+	testCases := []struct {
+		originalPost models.Post
+		updatedPost  models.Post
+		expectedPost models.Post
+	}{
+		{
+			originalPost: models.Post{ID: 1, Title: "Original Title", Content: "Original Content"},
+			updatedPost:  models.Post{ID: 1, Title: "Updated Title", Content: "Updated Content"},
+			expectedPost: models.Post{ID: 1, Title: "Updated Title", Content: "Updated Content"},
+		},
+		{
+			originalPost: models.Post{ID: 1, Title: "Original Title", Content: "Original Content"},
+			updatedPost:  models.Post{ID: 1, Title: "", Content: "Updated Content"},
+			expectedPost: models.Post{ID: 1, Title: "Original Title", Content: "Updated Content"},
+		},
+		{
+			originalPost: models.Post{ID: 1, Title: "Original Title", Content: "Original Content"},
+			updatedPost:  models.Post{ID: 1, Title: "Updated Title", Content: ""},
+			expectedPost: models.Post{ID: 1, Title: "Updated Title", Content: "Original Content"},
+		},
+		{
+			originalPost: models.Post{ID: 1, Title: "Original Title", Content: "Original Content"},
+			updatedPost:  models.Post{ID: 1, Title: "", Content: ""},
+			expectedPost: models.Post{ID: 1, Title: "Original Title", Content: "Original Content"},
+		},
+	}
 
-	originalPost := models.Post{ID: 1, Title: "Original Title", Content: "Original Content"}
-	updatedPost := models.Post{ID: 1, Title: "Updated Title", Content: "Updated Content"}
-	expectedPost := models.Post{ID: 1, Title: "Updated Title", Content: "Updated Content"}
+	for i, tc := range testCases {
+		mockRepo := new(MockRepository)
+		service := NewService(mockRepo)
 
-	// Set up the expected calls
-	mockRepo.On("GetPost", 1).Return(originalPost, nil).Once()
-	mockRepo.On("UpdatePost", mock.AnythingOfType("models.Post")).Return(1, nil).Once()
-	mockRepo.On("GetPost", 1).Return(expectedPost, nil).Once()
+		mockRepo.On("GetPost", 1).Return(tc.originalPost, nil).Once()
+		mockRepo.On("UpdatePost", mock.AnythingOfType("models.Post")).Return(1, nil).Once()
+		mockRepo.On("GetPost", 1).Return(tc.expectedPost, nil).Once()
 
-	result, err := service.UpdatePost(updatedPost)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedPost, result)
+		result, err := service.UpdatePost(tc.updatedPost)
+		assert.NoError(t, err, fmt.Sprintf("case %d", i))
+		assert.Equal(t, tc.expectedPost, result, fmt.Sprintf("case %d", i))
 
-	mockRepo.AssertExpectations(t)
+		mockRepo.AssertExpectations(t)
+	}
 }
 
 func TestUpdatePostValidation(t *testing.T) {
